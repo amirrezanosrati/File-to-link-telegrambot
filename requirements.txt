@@ -12,6 +12,7 @@ jinja2
 pytz
 shortzy
 pyngrok
+pyrogram
 
 
 #Dont Remove My Credit @AV_BOTz_UPDATE 
