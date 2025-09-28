@@ -6,11 +6,8 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 360   # نهایتاً ۶ ساعت
-    env:
-      API_ID: ${{ secrets.API_ID }}
-      API_HASH: ${{ secrets.API_HASH }}
-      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+    timeout-minutes: 360   # اجرا تا ۶ ساعت
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -18,10 +15,15 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v3
         with:
-          python-version: '3.x'
+          python-version: '3.11'
 
       - name: Install requirements
         run: pip install -r requirements.txt
 
       - name: Run bot
-        run: python3 bot.py
+        env:
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        run: python Script.py
