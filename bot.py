@@ -1,86 +1,35 @@
-import os, sys, glob, pytz, asyncio, logging, importlib
-from pathlib import Path
-from pyrogram import idle
+import os
+import threading
+import http.server
+import socketserver
+from pyngrok import ngrok
+from pyrogram import Client, filters
 
-#Dont Remove My Credit @AV_BOTz_UPDATE 
-#This Repo Is By @BOT_OWNER26 
-# For Any Kind Of Error Ask Us In Support Group @AV_SUPPORT_GROUP
+# مقداردهی اولیه بات
+API_ID = int(os.getenv('API_ID'))
+API_HASH = os.getenv('API_HASH')
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+app = Client("bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logging.getLogger("aiohttp").setLevel(logging.ERROR)
-logging.getLogger("pyrogram").setLevel(logging.ERROR)
-logging.getLogger("aiohttp.web").setLevel(logging.ERROR)
- 
-from info import *
-from typing import Union, Optional, AsyncGenerator
-from Script import script 
-from datetime import date, datetime 
-from aiohttp import web
-from web import web_server, check_expired_premium
-from web.server import Webavbot
-from utils import temp, ping_server
-from web.server.clients import initialize_clients
+# راه‌اندازی سرور فایل ساده
+PORT = int(os.getenv('PORT', '8000'))
+handler = http.server.SimpleHTTPRequestHandler
+httpd = socketserver.TCPServer(("", PORT), handler)
+thread = threading.Thread(target=httpd.serve_forever)
+thread.daemon = True
+thread.start()
 
-#Dont Remove My Credit @AV_BOTz_UPDATE 
-#This Repo Is By @BOT_OWNER26 
-# For Any Kind Of Error Ask Us In Support Group @AV_SUPPORT_GROUP
+# ngrok
+http_tunnel = ngrok.connect(PORT, bind_tls=True)
+public_url = http_tunnel.public_url
+print(f"🌍 Public URL: {public_url}")
 
-ppath = "plugins/*.py"
-files = glob.glob(ppath)
-Webavbot.start()
-loop = asyncio.get_event_loop()
+# هندلر فایل
+@app.on_message(filters.document | filters.video | filters.audio)
+async def handle_file(client, message):
+    file_path = await client.download_media(message)
+    filename = os.path.basename(file_path)
+    download_link = f"{public_url}/{filename}"
+    await message.reply_text(f"🔗 لینک دانلود فایل شما:\n{download_link}")
 
-async def start():
-    print('\n')
-    print('Initalizing Your Bot')
-    bot_info = await Webavbot.get_me()
-    await initialize_clients()
-    for name in files:
-        with open(name) as a:
-            patt = Path(a.name)
-            plugin_name = patt.stem.replace(".py", "")
-            plugins_dir = Path(f"plugins/{plugin_name}.py")
-            import_path = "plugins.{}".format(plugin_name)
-            spec = importlib.util.spec_from_file_location(import_path, plugins_dir)
-            load = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(load)
-            sys.modules["plugins." + plugin_name] = load
-            print("Imported => " + plugin_name)
-
-#Dont Remove My Credit @AV_BOTz_UPDATE 
-#This Repo Is By @BOT_OWNER26 
-# For Any Kind Of Error Ask Us In Support Group @AV_SUPPORT_GROUP
-    
-    if ON_HEROKU:
-        asyncio.create_task(ping_server())
-    me = await Webavbot.get_me()
-    temp.BOT = Webavbot
-    temp.ME = me.id
-    temp.U_NAME = me.username
-    temp.B_NAME = me.first_name
-    tz = pytz.timezone('Asia/Kolkata')
-    today = date.today()
-    now = datetime.now(tz)
-    time = now.strftime("%H:%M:%S %p")
-    Webavbot.loop.create_task(check_expired_premium(Webavbot))
-    await Webavbot.send_message(chat_id=LOG_CHANNEL, text=script.RESTART_TXT.format(today, time))
-    await Webavbot.send_message(chat_id=ADMINS[0] ,text='<b>ʙᴏᴛ ʀᴇsᴛᴀʀᴛᴇᴅ !!</b>')
-    await Webavbot.send_message(chat_id=SUPPORT_GROUP, text=f"<b>{me.mention} ʀᴇsᴛᴀʀᴛᴇᴅ 🤖</b>")
-    app = web.AppRunner(await web_server())
-    await app.setup()
-    bind_address = "0.0.0.0"
-    await web.TCPSite(app, bind_address, PORT).start()
-    await idle()
-
-#Dont Remove My Credit @AV_BOTz_UPDATE 
-#This Repo Is By @BOT_OWNER26 
-# For Any Kind Of Error Ask Us In Support Group @AV_SUPPORT_GROUP
-
-if __name__ == '__main__':
-    try:
-        loop.run_until_complete(start())
-    except KeyboardInterrupt:
-        logging.info('----------------------- Service Stopped -----------------------')
+app.run()
