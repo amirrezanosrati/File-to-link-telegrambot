@@ -1,4 +1,4 @@
-name: Run Telegram Bot
+name: Run CompressorBot with ngrok
 
 on:
   workflow_dispatch:
@@ -6,24 +6,43 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 360   # اجرا تا ۶ ساعت
+    timeout-minutes: 360   # حداکثر 6 ساعت روشن می‌مونه
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+    - name: Checkout repo
+      uses: actions/checkout@v3
 
-      - name: Setup Python
-        uses: actions/setup-python@v3
-        with:
-          python-version: '3.11'
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
 
-      - name: Install requirements
-        run: pip install -r requirements.txt
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg jq curl unzip
+        pip install -r requirements.txt
 
-      - name: Run bot
-        env:
-          API_ID: ${{ secrets.API_ID }}
-          API_HASH: ${{ secrets.API_HASH }}
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-        run: python Script.py
+    - name: Install ngrok
+      run: |
+        curl -s https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-linux-amd64.zip -o ngrok.zip
+        unzip ngrok.zip
+        sudo mv ngrok /usr/local/bin/ngrok
+        ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+
+    - name: Start ngrok tunnel
+      run: |
+        ngrok http 8080 > ngrok.log &
+        sleep 5
+        curl --silent http://127.0.0.1:4040/api/tunnels > tunnels.json
+        cat tunnels.json
+        echo "PUBLIC_URL=$(jq -r '.tunnels[0].public_url' tunnels.json)" >> $GITHUB_ENV
+
+    - name: Run bot
+      env:
+        API_ID: ${{ secrets.API_ID }}
+        API_HASH: ${{ secrets.API_HASH }}
+        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        PUBLIC_URL: ${{ env.PUBLIC_URL }}
+      run: |
+        python Script.py
